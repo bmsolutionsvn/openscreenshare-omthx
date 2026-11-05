@@ -160,7 +160,10 @@ int omt_send(omt_send_t* instance, OMTMediaFrame* frame) {
     
     auto* sender = reinterpret_cast<omt::Sender*>(instance);
     
-    // Only handle video for now
+    if (frame->Type == OMTFrameType_Audio) {
+        return sender->sendAudio(static_cast<const float*>(frame->Data), frame->Channels,
+                                 frame->SamplesPerChannel, frame->SampleRate, frame->Timestamp);
+    }
     if (frame->Type != OMTFrameType_Video) return 0;
     
     omt::MediaFrame mf{};

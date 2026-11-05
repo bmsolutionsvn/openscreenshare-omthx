@@ -5,6 +5,7 @@
 
 #include "OMTSender.h"
 #include "OMTProtocol.h"
+#include "OMTAudioFrame.h"
 // The public C enum (OMTCodec_HEVC/H264): the tags below are pinned against it at compile time.
 #include "libomt.h"
 #include "../../libvmx/src/vmxcodec.h"
@@ -929,6 +930,34 @@ int Sender::send(const MediaFrame& frame) {
     }
     
     return totalSent > 0 ? encodedLen : 0;
+}
+
+int Sender::sendAudio(const float* planar, int channels, int samplesPerChannel, int sampleRate,
+                      int64_t timestamp100ns) {
+    // Built once, then split into the three records the channel's sender loop expects: header,
+    // extended header, payload — exactly the shape send() uses for video.
+    const std::vector<uint8_t> frame =
+            buildAudioFrame(planar, channels, samplesPerChannel, sampleRate, timestamp100ns);
+    if (frame.empty()) return 0;
+
+    const uint8_t* header = frame.data();
+    const uint8_t* ext = header + sizeof(FrameHeader);
+    const uint8_t* payload = ext + sizeof(AudioExtHeader);
+    const size_t payloadLength = frame.size() - sizeof(FrameHeader) - sizeof(AudioExtHeader);
+
+    int totalSent = 0;
+    {
+        std::lock_guard<std::mutex> lock(channelsMutex_);
+        for (const auto& ch : channels_) {
+            if (!ch->isConnected()) continue;
+            if (!ch->isAudioSubscribed()) continue;
+            int sent = ch->sendAsync(header, sizeof(FrameHeader),
+                                     ext, sizeof(AudioExtHeader),
+                                     payload, payloadLength);
+            if (sent > 0) totalSent += sent;
+        }
+    }
+    return totalSent > 0 ? static_cast<int>(payloadLength) : 0;
 }
 
 void Sender::sendMetadata(const std::string& xml) {

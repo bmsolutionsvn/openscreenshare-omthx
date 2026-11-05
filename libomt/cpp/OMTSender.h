@@ -126,6 +126,13 @@ public:
     int send(const MediaFrame& frame);
 
     /**
+     * Send one FPA1 audio frame (planar 32-bit float) to every audio-subscribed channel.
+     * @return the payload bytes queued, or 0 when nothing was sent
+     */
+    int sendAudio(const float* planar, int channels, int samplesPerChannel, int sampleRate,
+                  int64_t timestamp100ns);
+
+    /**
      * Why the last send() failed, or empty if it did not. The counters say what state we are in;
      * this says why, so an operator can read the reason from the UI instead of attaching a
      * debugger to a phone. (Codex-style rule: Status is the current phase, LastError is the reason.)

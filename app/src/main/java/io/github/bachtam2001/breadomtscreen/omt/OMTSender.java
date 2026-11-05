@@ -281,6 +281,28 @@ public class OMTSender {
     }
 
     /**
+     * Send one planar 32-bit float audio frame (OMT FPA1) to every audio-subscribed receiver.
+     *
+     * @param planar            channels one after another, samplesPerChannel floats each
+     * @param ptsNs             presentation time on the same monotonic clock as video
+     * @return true when the frame was queued; "nobody is listening" still counts as queued
+     */
+    public boolean sendAudio(float[] planar, int channels, int samplesPerChannel, int sampleRate,
+                             long ptsNs) {
+        if (!isInitialized) {
+            Log.e(TAG, "Cannot send audio: OMTSender not initialized");
+            return false;
+        }
+        if (planar == null || channels < 1 || samplesPerChannel <= 0
+                || planar.length < channels * samplesPerChannel) {
+            Log.e(TAG, "Cannot send audio: buffer holds " + (planar == null ? 0 : planar.length)
+                    + " samples, " + channels + " x " + samplesPerChannel + " needed");
+            return false;
+        }
+        return nativeSendAudio(planar, channels, samplesPerChannel, sampleRate, ptsNs);
+    }
+
+    /**
      * Frames the native encoder ring evicted to keep the capture callback non-blocking, since the
      * sender was created.
      *
@@ -452,6 +474,9 @@ public class OMTSender {
     private native boolean nativeSendCoded(ByteBuffer buffer, int offset, int length, int codec,
                                            int width, int height, int frameRateN, int frameRateD,
                                            long ptsNs);
+
+    private native boolean nativeSendAudio(float[] planar, int channels, int samplesPerChannel,
+                                           int sampleRate, long ptsNs);
 
     private native boolean nativeSendFramePlanes(ByteBuffer dst,
                                                  ByteBuffer y, int ySize, int yRowStride, int yPixelStride,

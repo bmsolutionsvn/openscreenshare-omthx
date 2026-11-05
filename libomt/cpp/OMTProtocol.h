@@ -18,7 +18,7 @@ namespace omt {
  */
 struct FrameHeader {
     uint8_t version;           // Always 1
-    uint8_t frameType;         // 1=Metadata, 2=Video, 3=Audio
+    uint8_t frameType;         // 1=Metadata, 2=Video, 4=Audio
     int64_t timestamp;         // Timestamp in 100ns ticks
     uint16_t metadataLength;   // Length of metadata
     int32_t dataLength;        // Includes extended header + payload
@@ -44,18 +44,22 @@ struct VideoExtHeader {
 };
 
 /**
- * Audio extended header - 20 bytes
- * Contains audio-specific information
+ * Audio extended header - 24 bytes
+ * Field order and size must match libomtnet's OMTAudioHeader; a receiver reads
+ * SamplesPerChannel before Channels, and ActiveChannels is a 32-bit mask.
  */
 struct AudioExtHeader {
-    int32_t codec;             // Codec fourCC
+    int32_t codec;             // Codec fourCC (FPA1)
     int32_t sampleRate;
-    int32_t channels;
     int32_t samplesPerChannel;
-    int32_t flags;
+    int32_t channels;
+    uint32_t activeChannels;   // Bit per channel, (1 << channels) - 1
+    int32_t reserved1;
     
-    static constexpr int SIZE = 20;
+    static constexpr int SIZE = 24;
 };
+
+static_assert(sizeof(AudioExtHeader) == 24, "OMT audio extended header is 24 bytes on the wire");
 
 #pragma pack(pop)
 
@@ -71,6 +75,8 @@ namespace Codec {
     constexpr int32_t NV12 = 0x3231564E;  // "NV12"
     constexpr int32_t BGRA = 0x41524742;  // "BGRA"
     constexpr int32_t PCM_F32 = 0x32334650; // "FP32" (floating point audio)
+    // The OMT audio codec every conforming receiver expects: 32-bit float, planar.
+    constexpr int32_t FPA1 = 0x31415046;  // "FPA1"
 }
 
 // Video flags — the numbers MUST match the authority in libomt.h:135-144 (OMTVideoFlags), which is

@@ -802,6 +802,60 @@ Java_io_github_bachtam2001_breadomtscreen_omt_OMTSender_nativeSendCoded(
 }
 
 /**
+ * Send one planar 32-bit float audio frame (OMT FPA1) to every audio-subscribed receiver.
+ *
+ * The Java array is copied once - GetFloatArrayRegion - because omt_send reads the buffer only
+ * while it is building and queueing the record, and the caller's array may be reused by the next
+ * AudioRecord read. The wire timestamp is the same monotonic clock as video, in 100 ns ticks.
+ */
+JNIEXPORT jboolean JNICALL
+Java_io_github_bachtam2001_breadomtscreen_omt_OMTSender_nativeSendAudio(
+        JNIEnv* env, jobject /* this */,
+        jfloatArray planar, jint channels, jint samplesPerChannel, jint sampleRate, jlong ptsNs) {
+
+    std::lock_guard<std::mutex> lock(g_senderMutex);
+
+    if (g_sender == nullptr) {
+        LOGE("Cannot send audio: sender not initialized");
+        return JNI_FALSE;
+    }
+    if (planar == nullptr || channels < 1 || channels > 32 ||
+        samplesPerChannel <= 0 || sampleRate <= 0) {
+        LOGE("Audio frame refused: channels %d, samples %d, rate %d", (int)channels,
+             (int)samplesPerChannel, (int)sampleRate);
+        return JNI_FALSE;
+    }
+    const jlong needed = (jlong)channels * (jlong)samplesPerChannel;
+    const jsize available = env->GetArrayLength(planar);
+    if (available < needed) {
+        LOGE("Audio frame refused: %d planar samples supplied, %lld needed", (int)available,
+             (long long)needed);
+        return JNI_FALSE;
+    }
+
+    std::vector<float> samples((size_t)needed);
+    env->GetFloatArrayRegion(planar, 0, (jsize)needed, samples.data());
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGE("Audio frame refused: could not read the float array");
+        return JNI_FALSE;
+    }
+
+    OMTMediaFrame frame{};
+    frame.Type = OMTFrameType_Audio;
+    frame.Codec = OMTCodec_FPA1;
+    frame.SampleRate = sampleRate;
+    frame.Channels = channels;
+    frame.SamplesPerChannel = samplesPerChannel;
+    frame.Data = samples.data();
+    frame.DataLength = (int)(needed * (jlong)sizeof(float));
+    frame.Timestamp = ptsNs / 100;   // the wire carries 100 ns ticks
+
+    const int sent = omt_send(g_sender, &frame);
+    return sent > 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+/**
  * Frames the ring evicted to keep the callback non-blocking since the sender was created.
  *
  * This is the number that distinguishes "the camera is producing 30 fps and the encoder is keeping
