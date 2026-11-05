@@ -10,7 +10,7 @@
 # compiled the wrong SIMD backend would produce black frames, not a red build.
 
 cmake_minimum_required(VERSION 3.22.1)
-project("bread_omt_screen")
+project("openscreenshare_omthx")
 
 # =============================================================================
 # OMT (Open Media Transport) Libraries
