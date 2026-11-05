@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/.cxx/
+.idea/
+*.iml
+*.apk
+local.properties
+graphify-out/
