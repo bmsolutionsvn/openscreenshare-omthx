@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
 
     private final CaptureService.StatusListener statusListener = (line, level, soundOff) ->
             runOnUiThread(() -> {
-                live = !line.startsWith("Idle");
+                live = CaptureService.isRunning();
                 statusText.setText(line);
                 liveButton.setText(live ? "Stop" : "Go Live");
                 meter.setProgress(Math.round(level * 100f));

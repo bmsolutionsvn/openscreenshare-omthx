@@ -70,6 +70,11 @@ public class OMTHXEncoder {
         // that carries the parameter sets. One second is the ceiling on that black frame.
         format.setInteger(MediaFormat.KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1);
         format.setInteger(MediaFormat.KEY_OPERATING_RATE, fps);
+        // A still screen must stay a live source. Without this, MediaCodec on a VirtualDisplay-fed
+        // surface emits nothing until the compositor produces a new frame, so a paused game or a
+        // menu freezes the receiver's picture. One frame period, in microseconds.
+        format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER,
+                1_000_000L / Math.max(1, fps));
         // The camera can feed this surface faster than the stream rate (a 120 fps high speed session
         // for a 60 fps stream); the input surface drops the surplus frames before they are encoded.
         // ("max-fps-to-encoder" is MediaFormat.KEY_MAX_FPS_TO_ENCODER, public from API 29.)

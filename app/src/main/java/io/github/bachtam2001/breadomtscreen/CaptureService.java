@@ -94,6 +94,16 @@ public class CaptureService extends Service {
         return "Live: " + width + "×" + height + " " + fps + " fps · " + viewers + " viewer(s)";
     }
 
+    /** A failed encoder is not retried until every viewer leaves; retrying every poll would reconfigure
+     * a codec four times a second for as long as somebody watches. */
+    static boolean shouldStartEncoder(boolean capture, boolean encoderRunning, boolean failed) {
+        return capture && !encoderRunning && !failed;
+    }
+
+    static String encoderFailedLine(int width, int height) {
+        return "Could not start the video encoder at " + width + "×" + height;
+    }
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ViewerGate viewerGate = new ViewerGate(VIEWER_HOLD_MS);
 
@@ -119,6 +129,7 @@ public class CaptureService extends Service {
     private volatile float level;
     private volatile boolean soundOff;
     private boolean stopped;
+    private boolean captureFailed;
     private String lastNotificationLine;
 
     private final Runnable poll = new Runnable() {
@@ -132,7 +143,10 @@ public class CaptureService extends Service {
             }
             final int viewers = sender == null ? 0 : sender.getViewerCount();
             final boolean capture = viewerGate.update(viewers, SystemClock.elapsedRealtime());
-            if (capture && encoder == null) {
+            if (!capture) {
+                captureFailed = false;
+            }
+            if (shouldStartEncoder(capture, encoder != null, captureFailed)) {
                 beginCapture();
             } else if (!capture && encoder != null) {
                 endCapture();
@@ -343,7 +357,9 @@ public class CaptureService extends Service {
 
     private void beginCapture() {
         startEncoder();
-        startAudio();
+        if (encoder != null) {
+            startAudio();
+        }
     }
 
     private void endCapture() {
@@ -356,11 +372,16 @@ public class CaptureService extends Service {
         try {
             encoder = new OMTHXEncoder(codecMime, codecTag, liveWidth, liveHeight, fps,
                     OMTHXFormat.bitrate(liveWidth, liveHeight, fps, quality, hevc));
-            encoder.start((data, offset, length, tag, width, height, fpsN, fpsD, ptsNs, keyframe) ->
-                    sender.sendCoded(data, offset, length, tag, width, height, fpsN, fpsD, ptsNs));
+            encoder.start((data, offset, length, tag, width, height, fpsN, fpsD, ptsNs, keyframe) -> {
+                OMTSender s = sender;
+                if (s != null) {
+                    s.sendCoded(data, offset, length, tag, width, height, fpsN, fpsD, ptsNs);
+                }
+            });
             virtualDisplay.setSurface(encoder.getInputSurface());
         } catch (IOException | RuntimeException e) {
             Log.e(TAG, "Encoder did not start at " + liveWidth + "x" + liveHeight, e);
+            captureFailed = true;
             if (encoder != null) {
                 encoder.stop();
                 encoder = null;
@@ -552,7 +573,13 @@ public class CaptureService extends Service {
                 Log.w(TAG, "AudioRecord.read after stop", e);
                 return;
             }
-            if (read <= 0) continue;
+            if (read < 0) {
+                // ERROR_DEAD_OBJECT / ERROR_INVALID_OPERATION: continuing would spin this thread at
+                // full speed for the rest of the session.
+                Log.e(TAG, "AudioRecord.read failed: " + read);
+                return;
+            }
+            if (read == 0) continue;
 
             final int framesRead = read / CHANNELS;
             if (firstFrameNs < 0) {
@@ -560,8 +587,9 @@ public class CaptureService extends Service {
             }
             final float[] planar = AudioPack.toPlanar(interleaved, framesRead, CHANNELS);
             final long ptsNs = AudioPack.ptsNs(firstFrameNs, framesSoFar, SAMPLE_RATE);
-            if (sender != null) {
-                sender.sendAudio(planar, CHANNELS, framesRead, SAMPLE_RATE, ptsNs);
+            final OMTSender s = sender;
+            if (s != null) {
+                s.sendAudio(planar, CHANNELS, framesRead, SAMPLE_RATE, ptsNs);
             }
             framesSoFar += framesRead;
             level = AudioPack.level(interleaved, read);
@@ -579,7 +607,14 @@ public class CaptureService extends Service {
     // ===== Status and notification =====
 
     private void publishStatus(int viewers) {
-        final String line = statusLine(encoder != null, liveWidth, liveHeight, fps, viewers);
+        final String line;
+        if (encoder != null) {
+            line = statusLine(true, liveWidth, liveHeight, fps, viewers);
+        } else if (captureFailed) {
+            line = encoderFailedLine(liveWidth, liveHeight);
+        } else {
+            line = statusLine(false, 0, 0, 0, 0);
+        }
         final float currentLevel = audioRunning ? level : 0f;
         StatusListener listener = statusListener;
         if (listener != null) {
