@@ -1,0 +1,46 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdk 36
+    compileOptions.encoding = 'UTF-8'
+    // A few classes touch android.util.Log; the stub jar throws on every call unless told otherwise.
+    testOptions.unitTests.returnDefaultValues = true
+
+    defaultConfig {
+        applicationId "io.github.bachtam2001.breadomtscreen"
+        minSdkVersion 29
+        targetSdkVersion 36
+        versionCode 1
+        versionName "1.0"
+
+        // Both ABIs are built from source by app/src/main/cpp/CMakeLists.txt.
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+    namespace = 'io.github.bachtam2001.breadomtscreen'
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version = "3.22.1"
+        }
+    }
+
+    ndkVersion = "27.3.13750724"
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
