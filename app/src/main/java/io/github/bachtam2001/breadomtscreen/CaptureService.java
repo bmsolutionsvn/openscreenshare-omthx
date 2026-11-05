@@ -125,6 +125,11 @@ public class CaptureService extends Service {
         @Override
         public void run() {
             if (stopped) return;
+            if (sender != null) {
+                // getViewerCount() counts but does not reap a peer that hung up; this does, so an
+                // idle announcement does not keep a dead viewer's socket for the whole session.
+                sender.pollStatsForReaping();
+            }
             final int viewers = sender == null ? 0 : sender.getViewerCount();
             final boolean capture = viewerGate.update(viewers, SystemClock.elapsedRealtime());
             if (capture && encoder == null) {
