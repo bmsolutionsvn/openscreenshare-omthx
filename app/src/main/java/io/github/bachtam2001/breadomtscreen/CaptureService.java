@@ -287,7 +287,7 @@ public class CaptureService extends Service {
 
         projection.registerCallback(projectionCallback, handler);
 
-        virtualDisplay = projection.createVirtualDisplay("Bread OMT Screen",
+        virtualDisplay = projection.createVirtualDisplay("OMT Screen",
                 liveWidth, liveHeight, densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 null, null, handler);

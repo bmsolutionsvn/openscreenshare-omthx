@@ -2,7 +2,7 @@
 
 Share an Android phone's screen **and game sound** over the network as an **OMT-HX** source (Open Media Transport, High Efficiency). It's built for capturing mobile games into a live production without the frame drops and in-game lag that phone casting causes.
 
-The app is **Bread OMT Screen**. It's the sister of [Open Camera OMT-HX](https://github.com/bmsolutionsvn/opencamera-omthx), which does the same for the phone's camera.
+The app is **OMT Screen**. It's the sister of [Open Camera OMT-HX](https://github.com/bmsolutionsvn/opencamera-omthx), which does the same for the phone's camera.
 
 ## Features
 
@@ -31,7 +31,7 @@ vMix can't decode OMT-HX itself. BreadCamera or OMT-Bridge converts it, picture 
 
 ## Usage
 
-1. Install the APK and open **Bread OMT Screen**.
+1. Install the APK and open **OMT Screen**.
 2. Set the name, Quality (Low / Medium / High) and Rate (60 / 30).
 3. Tap **Go Live** and allow Record audio. Android needs that permission to capture game sound; the microphone is never used.
 4. Accept Android's **Start sharing?** prompt. On Android 14+, choose the game app.

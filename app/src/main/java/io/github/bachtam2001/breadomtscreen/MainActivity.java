@@ -149,7 +149,7 @@ public class MainActivity extends Activity {
 
     private String defaultName() {
         String name = OMTStreamName.normalize(Build.MODEL);
-        return name == null ? "Bread OMT Screen (Screen)" : name;
+        return name == null ? "Phone (Screen)" : name;
     }
 
     /** The name the user typed, made visible to OMT receivers, falling back to the model. */
