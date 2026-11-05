@@ -75,9 +75,15 @@ public class CaptureService extends Service {
     }
 
     private static volatile StatusListener statusListener;
+    private static volatile boolean running;
 
     public static void setStatusListener(StatusListener listener) {
         statusListener = listener;
+    }
+
+    /** True between a successful start and teardown; the activity uses it to label the button. */
+    public static boolean isRunning() {
+        return running;
     }
 
     /** The exact copy the phone and its notification show. Pure, so the JVM test can pin it. */
@@ -221,6 +227,8 @@ public class CaptureService extends Service {
         String name = intent.getStringExtra(EXTRA_NAME);
         quality = intent.getIntExtra(EXTRA_QUALITY, 50);
         fps = intent.getIntExtra(EXTRA_FPS, 60);
+        soundOff = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED;
 
         // startForeground must come first: from Android 14 getMediaProjection requires a running
         // mediaProjection foreground service.
@@ -253,6 +261,7 @@ public class CaptureService extends Service {
             stopSession();
             return;
         }
+        running = true;
 
         announcer = new Announcer(this);
         announcer.start(name, ANNOUNCE_PORT);
@@ -278,6 +287,7 @@ public class CaptureService extends Service {
     private void stopSession() {
         if (stopped) return;
         stopped = true;
+        running = false;
 
         handler.removeCallbacks(poll);
 
@@ -311,6 +321,13 @@ public class CaptureService extends Service {
         if (sender != null) {
             sender.cleanup();
             sender = null;
+        }
+
+        // The activity may still be visible: give it the idle line so its button is not left on
+        // Stop (which would otherwise look like Go Live is unavailable until the app restarts).
+        StatusListener listener = statusListener;
+        if (listener != null) {
+            listener.onStatus(statusLine(false, 0, 0, 0, 0), 0f, false);
         }
 
         stopForeground(STOP_FOREGROUND_REMOVE);

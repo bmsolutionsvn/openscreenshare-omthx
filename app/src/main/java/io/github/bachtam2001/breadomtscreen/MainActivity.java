@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
         wholeScreenText.setVisibility(note == null ? View.GONE : View.VISIBLE);
 
         liveButton.setOnClickListener(v -> {
-            if (live) {
+            if (CaptureService.isRunning()) {
                 startService(new Intent(this, CaptureService.class)
                         .setAction(CaptureService.ACTION_STOP));
             } else {
@@ -117,6 +117,17 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         CaptureService.setStatusListener(statusListener);
+        if (CaptureService.isRunning()) {
+            live = true;
+            liveButton.setText("Stop");
+        } else {
+            // No service to report: seed the idle state rather than leaving a stale "Stop".
+            live = false;
+            liveButton.setText("Go Live");
+            statusText.setText(CaptureService.statusLine(false, 0, 0, 0, 0));
+            meter.setProgress(0);
+            soundOffText.setVisibility(View.GONE);
+        }
     }
 
     @Override

@@ -17,4 +17,10 @@ public class ServiceStatusTest {
         assertEquals("Live: 2400×1080 60 fps · 2 viewer(s)",
                 CaptureService.statusLine(true, 2400, 1080, 60, 2));
     }
+
+    @Test
+    public void soundOffCopyIsExact() {
+        assertEquals("Sound is off: Android needs the Record audio permission to capture game sound.",
+                CaptureService.SOUND_OFF_COPY);
+    }
 }
